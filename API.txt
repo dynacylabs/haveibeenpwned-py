@@ -1,0 +1,584 @@
+API Documentation
+
+The API allows the list of pwned accounts (email addresses, usernames and phone numbers) to be quickly searched via a RESTful service
+Index
+
+You're reading about v3 of the API which is presently the current version and contains breaking changes over previous versions for searching breaches and pastes via email address.
+
+    Overview
+        Authorisation
+        Test API Key
+        Specifying the API version
+        Specifying the user agent
+    Breaches
+        Getting all breaches for an account
+        Getting all breached email addresses for a domain
+        Getting all subscribed domains
+        Getting all breached sites in the system
+        Getting a single breached site by name
+        Getting the most recently added breach
+        Getting all data classes
+        The breach model
+        Sample breach response
+    Stealer logs
+        Overview
+        Getting all stealer log domains for an email address
+        Getting all stealer log email addresses for a website domain
+        Getting all stealer log email aliases for an email domain
+    Pastes
+        Getting all pastes for an account
+        The paste model
+        Sample paste response
+    Subscription
+        Getting the subscription status
+    Pwned Passwords
+        Overview
+        Searching by a range
+        Introducing padding
+        Incremental searches
+        Searching for NTLM hashes
+        Downloading all Pwned Passwords hashes
+    Further reading
+        HTTPS
+        Response codes
+        Test accounts
+        Cross-origin resource sharing (CORS)
+        Rate limiting
+        Abuse
+        Acceptable use
+        License
+
+Overview
+Authorisation
+
+Authorisation is required for all APIs that enable searching HIBP by email address or domain, namely retrieving all breaches for an account, retrieving all pastes for an account, retrieving all breached email addresses for a domain and retrieving all stealer log domains for a breached email addresses. There is no authorisation required for the free Pwned Passwords API. An HIBP subscription key is required to make an authorised call and can be obtained on the API key page. The key is then passed in a "hibp-api-key" header:
+
+GET https://haveibeenpwned.com/api/v3/{service}/{parameter}
+hibp-api-key: [your key]
+
+Semantic HTTP response codes are used to indicate the result of the API call:
+Code 	Description
+401 	Unauthorised — the API key provided was not valid
+
+Additional information may be present in the response body when an API call fails, for example:
+
+Access denied due to missing hibp-api-key.
+
+Access denied due to improperly formed hibp-api-key.
+
+Access denied due to invalid hibp-api-key.
+
+HIBP API keys must be 32-character hexadecimal strings. Keys undergo an initial format check, followed by validation to confirm their authenticity before any processing occurs.
+Test API Key
+
+Where supported, a test API key can be used instead of a paid subscription. Test keys provide limited access (typically to test accounts) and may be any value that conforms to the required key format. For example:
+
+GET https://haveibeenpwned.com/api/v3/{service}/{parameter}
+hibp-api-key: 00000000000000000000000000000000
+
+Specifying the API version
+
+Version 3 of the API is consumable only by specifying the API version in the URL. All API endpoints are requested with the following pattern:
+
+GET https://haveibeenpwned.com/api/v3/{service}/{parameter}
+
+Specifying the user agent
+
+Each request to the API must be accompanied by a user agent request header. Typically this should be the name of the app consuming the service. A missing user agent will result in an HTTP 403 response. A valid request would look like:
+
+GET https://haveibeenpwned.com/api/v3/{service}/{parameter}
+user-agent: [your app name]
+
+The user agent should accurately describe the nature of the API consumer such that it can be clearly identified in the request. Not doing so may result in the request being blocked.
+Breaches
+Getting all breaches for an account
+
+The most common use of the API is to return a list of all breaches a particular account has been involved in. The API takes a single parameter which is the account to be searched for. The account is not case-sensitive and will be trimmed of leading or trailing white spaces. The account should always be URL encoded. This is an authenticated API and an HIBP API key must be passed with the request.
+
+GET https://haveibeenpwned.com/api/v3/breachedaccount/{account}
+hibp-api-key: [your key]
+
+If the account is found in a breach, an HTTP 200 response is returned. By default, only the name of the breach is returned rather than the complete breach data, thus reducing the response body size by approximately 98% compared to returning the full breach model.
+
+[
+  {
+    "Name": "Adobe"
+  },
+  {
+    "Name": "Gawker"
+  },
+  {
+    "Name": "Stratfor"
+  }
+]
+
+The name can then be used to either retrieve a single breach or it can be found in the list of all breaches in the system. If you'd like complete breach data returned in the API call, a non-truncated response can be specified via query string parameter:
+Parameter 	Example 	Description
+truncateResponse 	?truncateResponse=false 	Returns the full breach model.
+
+Which returns the complete model for each breach:
+
+[
+  {
+    "Name": "Adobe",
+    "Title": "Adobe",
+    "Domain": "adobe.com",
+    "BreachDate": "2013-10-04",
+    "AddedDate": "2013-12-04T00:00:00Z",
+    "ModifiedDate": "2022-05-15T23:52:49Z",
+    "PwnCount": 152445165,
+    "Description": "In October 2013, 153 million Adobe accounts were breached with each containing an internal ID, username, email, <em>encrypted</em> password and a password hint in plain text. The password cryptography was poorly done and many were quickly resolved back to plain text. The unencrypted hints also <a href="http://www.troyhunt.com/2013/11/adobe-credentials-and-serious.html" target="_blank" rel="noopener">disclosed much about the passwords</a> adding further to the risk that hundreds of millions of Adobe customers already faced.",
+    "LogoPath": "Adobe.png",
+    "DataClasses": [
+      "Email addresses",
+      "Password hints",
+      "Passwords",
+      "Usernames"
+    ],
+    "IsVerified": true,
+    "IsFabricated": false,
+    "IsSensitive": false,
+    "IsRetired": false,
+    "IsSpamList": false,
+    "IsMalware": false,
+    "IsStealerLog": false,
+    "IsSubscriptionFree": false
+  },
+  ...
+
+The result set can also be filtered by passing one of the following query strings:
+Parameter 	Example 	Description
+domain 	?Domain=adobe.com 	Filters the result set to only breaches against the domain specified. It is possible that one site (and consequently domain), is compromised on multiple occasions.
+
+Note: the public API will not return accounts from any breaches flagged as sensitive or retired. By default, the API will return breaches flagged as unverified, however these can be excluded by using the following parameter:
+Parameter 	Example 	Description
+IncludeUnverified 	?IncludeUnverified=false 	Returns breaches that have been flagged as "unverified". By default, both verified and unverified breaches are returned when performing a search.
+
+If the account is not found in a breach, an HTTP 404 response will be returned. See the response codes section of the API docs for more information, including other response codes that me be returned.
+
+This API supports test API keys that can be used to query any email address on the test accounts domain. For example, the following queries can be made without needing a paid subscription:
+
+GET https://haveibeenpwned.com/api/v3/breachedaccount/account-exists%40hibp-integration-tests.com
+hibp-api-key: 00000000000000000000000000000000
+
+GET https://haveibeenpwned.com/api/v3/breachedaccount/spam-list-only%40hibp-integration-tests.com
+hibp-api-key: 00000000000000000000000000000000
+
+GET https://haveibeenpwned.com/api/v3/breachedaccount/stealer-log%40hibp-integration-tests.com
+hibp-api-key: 00000000000000000000000000000000
+
+Getting all breached email addresses for a domain
+
+All email addresses on a given domain and the breaches they've appeared in can be returned via the domain search API. Only domains that have been successfully added to the domain search dashboard after verifying control can be searched. The API takes a single parameter which is the domain to be searched for and is an authenticated API requiring an HIBP API key.
+
+GET https://haveibeenpwned.com/api/v3/breacheddomain/{domain}
+hibp-api-key: [your key]
+
+If one or more results are found, an HTTP 200 response is returned. For each breached email address on the domain, only the alias is returned along with each breach it has appeared in. Only the name attribute of the breach is returned which can then be used to retrieve a single breach or it can be found in the list of all breaches in the system.
+
+{
+  "alias1": [
+   "Adobe"
+  ],
+  "alias2": [
+    "Adobe",
+    "Gawker",
+    "Stratfor"
+  ],
+  "alias3": [
+    "AshleyMadison"
+  ]
+}
+
+In the above example, if the domain searched for is example.com then 3 email addresses have been found:
+
+    alias1@example.com is in the Adobe data breach
+    alias2@example.com is in the Adobe, Gawker and Stratfor data breaches
+    alias3@example.com is in the Ashley Madison data breach
+
+If the domain does not have any email addresses in any breaches, an HTTP 404 response will be returned. See the response codes section of the API docs for more information, including other response codes that me be returned.
+
+Typically, there is no need to query a domain unless a new breach has been added since the last query. Whilst there's no formal rate limit on the domain search API, reguarly querying it beyond what is practically necessary may result in an HTTP 429 response. To optimise your querying, you can aggressively query the unauthenticated most recent breach API (it's heavily cached at Cloudflare) and once a new breach is seen, query the domain search API for each of your domains.
+
+Note: the domain search API will return sensitive data breaches as it can only be called after demonstrating control of the domain.
+Getting all subscribed domains
+
+Domains that have been successfully added to the domain search dashboard after verifying control are returned via this API. This is an authenticated API requiring an HIBP API key which will then return all domains associated with that key.
+
+GET https://haveibeenpwned.com/api/v3/subscribeddomains
+
+The API returns a list of subscribed domains including the following attributes:
+Attribute 	Type 	Description
+DomainName 	string 	The full domain name that has been successfully verified.
+PwnCount 	integer 	The total number of breached email addresses found on the domain at last search (will be null if no searches yet performed).
+PwnCountExcludingSpamLists 	integer 	The number of breached email addresses found on the domain at last search, excluding any breaches flagged as a spam list (will be null if no searches yet performed).
+PwnCountExcludingSpamLists
+AtLastSubscriptionRenewal 	integer 	The total number of breached email addresses found on the domain when the current subscription was taken out (will be null if no searches yet performed). This number ensures the domain remains searchable throughout the subscription period even if the volume of breached accounts grows beyond the subscription's scope.
+NextSubscriptionRenewal 	datetime 	The date and time the current subscription ends in ISO 8601 format. The PwnCountExcludingSpamListsAtLastSubscriptionRenewal value is locked in until this time (will be null if there have been no subscriptions).
+Getting all breached sites in the system
+
+A "breach" is an instance of a system having been compromised by an attacker and the data disclosed. For example, Adobe was a breach, Gawker was a breach etc. It is possible to return the details of each of breach in the system which currently stands at 920 breaches.
+
+GET https://haveibeenpwned.com/api/v3/breaches
+
+The result set can also be filtered by passing one of the following query strings:
+Parameter 	Example 	Test 	Description
+Domain 	?Domain=adobe.com 	
+Filters the result set to only breaches against the domain specified. It is possible that one site (and consequently domain), is compromised on multiple occasions.
+IsSpamList 	?IsSpamList=true 	
+Filters the result set to only breaches that either are or are not flagged as a spam list.
+Getting a single breached site by name
+
+Sometimes just a single breach is required and this can be retrieved by the breach "Name". This is the stable value which may or may not be the same as the breach "Title", which can change. See the breach model below for more info.
+
+GET https://haveibeenpwned.com/api/v3/breach/{name}
+
+Getting the most recently added breach
+
+Often, it's most efficient to monitor for new breaches before performing other actions, for example querying an account or domain. Issuing queries over and over again when no new breaches have been loaded since the last query is usually sub-optimal. This API returns the most recently added breach based on the "AddedDate" attribute of the breach model. This may not be the most recent breach to occur as there may be significant lead time between a service being breached and the data later appearing on HIBP. See the breach model below for more info.
+
+GET https://haveibeenpwned.com/api/v3/latestbreach
+
+Getting all data classes in the system
+
+A "data class" is an attribute of a record compromised in a breach. For example, many breaches expose data classes such as "Email addresses" and "Passwords". The values returned by this service are ordered alphabetically in a string array and will expand over time as new breaches expose previously unseen classes of data.
+
+GET https://haveibeenpwned.com/api/v3/dataclasses
+
+The breach model
+
+Each breach contains a number of attributes describing the incident. In the future, these attributes may expand without the API being versioned. The current attributes are:
+Attribute 	Type 	Description
+Name 	string 	A Pascal-cased name representing the breach which is unique across all other breaches. This value never changes and may be used to name dependent assets (such as images) but should not be shown directly to end users (see the "Title" attribute instead).
+Title 	string 	A descriptive title for the breach suitable for displaying to end users. It's unique across all breaches but individual values may change in the future (i.e. if another breach occurs against an organisation already in the system). If a stable value is required to reference the breach, refer to the "Name" attribute instead.
+Domain 	string 	The domain of the primary website the breach occurred on. This may be used for identifying other assets external systems may have for the site.
+BreachDate 	date 	The date (with no time) the breach originally occurred on in ISO 8601 format. This is not always accurate — frequently breaches are discovered and reported long after the original incident. Use this attribute as a guide only.
+AddedDate 	datetime 	The date and time (precision to the minute) the breach was added to the system in ISO 8601 format.
+ModifiedDate 	datetime 	The date and time (precision to the minute) the breach was modified in ISO 8601 format. This will only differ from the AddedDate attribute if other attributes represented here are changed or data in the breach itself is changed (i.e. additional data is identified and loaded). It is always either equal to or greater then the AddedDate attribute, never less than.
+PwnCount 	integer 	The total number of accounts loaded into the system. This is usually less than the total number reported by the media due to duplication or other data integrity issues in the source data.
+Description 	string 	Contains an overview of the breach represented in HTML markup. The description may include markup such as emphasis and strong tags as well as hyperlinks.
+DataClasses 	string[] 	This attribute describes the nature of the data compromised in the breach and contains an alphabetically ordered string array of impacted data classes.
+IsVerified 	boolean 	Indicates that the breach is considered unverified. An unverified breach may not have been hacked from the indicated website. An unverified breach is still loaded into HIBP when there's sufficient confidence that a significant portion of the data is legitimate.
+IsFabricated 	boolean 	Indicates that the breach is considered fabricated. A fabricated breach is unlikely to have been hacked from the indicated website and usually contains a large amount of manufactured data. However, it still contains legitimate email addresses and asserts that the account owners were compromised in the alleged breach.
+IsSensitive 	boolean 	Indicates if the breach is considered sensitive. The public API will not return any accounts for a breach flagged as sensitive.
+IsRetired 	boolean 	Indicates if the breach has been retired. This data has been permanently removed and will not be returned by the API.
+IsSpamList 	boolean 	Indicates if the breach is considered a spam list. This flag has no impact on any other attributes but it means that the data has not come as a result of a security compromise.
+IsMalware 	boolean 	Indicates if the breach is sourced from malware. This flag has no impact on any other attributes, it merely flags that the data was sourced from a malware campaign rather than a security compromise of an online service.
+IsSubscriptionFree 	boolean 	Indicates if the breach is subscription-free. This flag has no impact on any other attributes, it is only used when running a domain search where a sufficiently sized subscription isn't present.
+IsStealerLog 	boolean 	Indicates if the breach is sourced from stealer logs. A breach with this flag also has the domains that appear in the logs loaded against each email address. This data can be accessed via the stealer logs API.
+LogoPath 	string 	A URI that specifies where a logo for the breached service can be found. Logos are always in PNG format.
+Attribution 	string 	Sometimes requested by the party that provides the data to HIBP.
+Sample breach response
+
+All responses return breach models either in a collection (breaches for account or all breaches in the system) or as a single item (retrieving a breach by name). When a collection is returned, it's sorted alphabetically by the title of the breach.
+
+[
+  {
+    "Name":"Adobe",
+    "Title":"Adobe",
+    "Domain":"adobe.com",
+    "BreachDate":"2013-10-04",
+    "AddedDate":"2013-12-04T00:00Z",
+    "ModifiedDate":"2022-05-15T23:52Z",
+    "PwnCount":152445165,
+    "Description":"In October 2013, 153 million Adobe accounts were breached with each containing an internal ID, username, email, <em>encrypted</em> password and a password hint in plain text. The password cryptography was poorly done and many were quickly resolved back to plain text. The unencrypted hints also <a href=\"http://www.troyhunt.com/2013/11/adobe-credentials-and-serious.html\" target=\"_blank\" rel=\"noopener\">disclosed much about the passwords</a> adding further to the risk that hundreds of millions of Adobe customers already faced.",
+    "DataClasses":["Email addresses","Password hints","Passwords","Usernames"],
+    "IsVerified":true,
+    "IsFabricated":false,
+    "IsSensitive":false,
+    "IsRetired":false,
+    "IsSpamList":false,
+    "IsMalware":false,
+    "IsSubscriptionFree":false,
+    "LogoPath":"Adobe.png",
+    "Attribution":null
+  },
+  {
+    "Name":"BattlefieldHeroes",
+    "Title":"Battlefield Heroes",
+    "Domain":"battlefieldheroes.com",
+    "BreachDate":"2011-06-26",
+    "AddedDate":"2014-01-23T13:10Z",
+    "ModifiedDate":"2014-01-23T13:10Z",
+    "PwnCount":530270,
+    "Description":"In June 2011 as part of a final breached data dump, the hacker collective \"LulzSec\" <a href=\"http://www.rockpapershotgun.com/2011/06/26/lulzsec-over-release-battlefield-heroes-data\" target=\"_blank\" rel=\"noopener\">obtained and released over half a million usernames and passwords from the game Battlefield Heroes</a>. The passwords were stored as MD5 hashes with no salt and many were easily converted back to their plain text versions.",
+    "DataClasses":["Passwords","Usernames"],
+    "IsVerified":true,
+    "IsFabricated":false,
+    "IsSensitive":false,
+    "IsRetired":false,
+    "IsSpamList":false,
+    "IsMalware":false,
+    "IsSubscriptionFree":false,
+    "LogoPath":"BattlefieldHeroes.png",
+    "Attribution":null
+  }
+]
+
+Stealer Logs
+Overview
+
+Stealer logs typically appear as a combination of website address, email address and password. For example, typical stealer log entries appear as follows.
+
+https://netflix.com/login:jane@gmail.com:P@ssw0rd
+https://netflix.com/login:andy@gmail.com:abc123
+https://spotify.com/auth:jane@gmail.com:qwerty
+https://spotify.com/auth:max@yahoo.com:baseball
+
+The first row illustrates that when logging onto Netflix, Jane's email address and password were captured by an info stealer. Andy's details were also captured against Netflix, and both Jane and Max's credentials were captured against Spotify. The nomenclature is used to describe the four attributes the HIBP APIs deal with:
+  	  	  	Email Address 	 
+  	Website Domain 	  	Email Alias 	  	Email Domain 	 
+https:// 	netflix.com 	/login 	jane 	@ 	gmail.com 	P@ssw0rd
+
+HIBP stores the website domain (netflix.com) alongside the email addresses (john@gmail.com). The logs are then searchable in 3 different ways:
+
+    By email address: searching for jane@gmail.com would return netflix.com and spotify.com
+    By email address domain: searching for gmail.com would return both Jane and Andy's email addresses along with the domains of the websites they appeared against
+    By website domain: searching for netflix.com would return both Jane and Andy's email addresses
+
+Each search can only be performed against domains that have been successfully added to the domain search dashboard after verifying control. For example, the first two searches above can only be done by parties who control gmail.com, and the last search by those who control netflix.com. Where an email address might appear in a stealer log breach but not have a corresponding website domain against it (i.e. because the source data was presented such that one coulnd't be parsed out, no stealer log record will be returned.
+
+All stealer log APIs require a Pwned 5 subscription or higher, regardless of domain size. The number of email addresses seen against a website domain is displayed next to the domain on the domain search dashboard, for example spotify.com would show 2 results based on the sample data above.
+
+The stealer log APIs that search by domain implement their own rate limit which is entirely independent of the rate limit for the subscription level. For example, whilst a Pwned 5 subscription with a 1,000 RPM rate limit will allow that many queries of the breached account API, the domain-based stealer log APIs have a separate rate limit set much lower. This is due to a combination of the size of the data being queried and the nature of the APIs not requiring the same rate of requests.
+
+Note: there are no API endpoints that return the password for a user. Passwords are independently searchable via the Pwned Passwords service.
+Getting all stealer log domains for an email address
+
+This search is based on the full email address captured by an info stealer as the owner authenticated to a website.
+
+GET https://haveibeenpwned.com/api/v3/stealerlogsbyemail/{email address}
+hibp-api-key: [your key]
+
+This search returns an array of domains sorted alphabetically:
+
+[
+  "netflix.com",
+  "spotify.com"
+]
+
+If no stealer log entries are present for the address, the response will return HTTP 404. The email address being searched for must be on a domain already added to the domain search dashboard. If the searched address is test@example.com, it requires adding example.com to the dashboard and successfully demonstrating control of this domain. Read more about stealer logs in HIBP.
+Getting all stealer log email addresses for a website domain
+
+This search is by the domain of the website URLs that appear in stealer logs. This is the website the info stealer victim was entering credentials into when their data was captured.
+
+GET https://haveibeenpwned.com/api/v3/stealerlogsbywebsitedomain/{domain}
+hibp-api-key: [your key]
+
+This search returns an array of email addresses sorted alphabetically:
+
+[
+  "andy@gmail.com",
+  "jane@gmail.com"
+]
+
+Typically, this search would be performed by a website operator looking to identify which of their customers is likely to be the subject of an account takeover attack.
+
+Note: The domain being searched for must be already added to the domain search dashboard.
+Getting all stealer log email aliases for an email domain
+
+This search is by the domain of the email address, which is a similar approach to getting all breached email addresses for a domain , it just returns stealer log data instead.
+
+GET https://haveibeenpwned.com/api/v3/stealerlogsbyemaildomain/{domain}
+hibp-api-key: [your key]
+
+This search returns a two-dimensional array of email address aliases and associated stealer log website domains, both sorted alphabetically:
+
+{
+  "andy": [
+    "netflix.com"
+  ],
+  "jane": [
+    "netflix.com",
+    "spotify.com"
+  ]
+}
+
+This API would normally be used to identify individuals within an organisation who've had credentials taken by an info stealer, and the services for which those credentials have been exposed.
+
+Note: The domain being searched for must be already added to the domain search dashboard.
+Pastes
+Getting all pastes for an account
+
+The API takes a single parameter which is the email address to be searched for. The address is not case-sensitive and will be trimmed of leading or trailing white spaces. The address should always be URL encoded. This is an authenticated API and an HIBP API key must be passed with the request.
+
+GET https://haveibeenpwned.com/api/v3/pasteaccount/{account}
+hibp-api-key: [your key]
+
+The paste model
+
+Each paste contains a number of attributes describing it. In the future, these attributes may expand without the API being versioned. The current attributes are:
+Attribute 	Type 	Description
+Source 	string 	The paste service the record was retrieved from. Current values are: Pastebin, Pastie, Slexy, Ghostbin, QuickLeak, JustPaste, AdHocUrl, PermanentOptOut, OptOut
+Id 	string 	The ID of the paste as it was given at the source service. Combined with the "Source" attribute, this can be used to resolve the URL of the paste.
+Title 	string 	The title of the paste as observed on the source site. This may be null and if so will be omitted from the response.
+Date 	date 	The date and time (precision to the second) that the paste was posted. This is taken directly from the paste site when this information is available but may be null if no date is published.
+EmailCount 	integer 	The number of emails that were found when processing the paste. Emails are extracted by using the regular expression \b[a-zA-Z0-9\.\-_\+]+@[a-zA-Z0-9\.\-_]+\.[a-zA-Z]+\b
+Sample paste response
+
+Searching an account for pastes always returns a collection of the paste entity. The collection is sorted chronologically with the newest paste first.
+
+[
+  {
+    "Source":"Pastebin",
+    "Id":"8Q0BvKD8",
+    "Title":"syslog",
+    "Date":"2014-03-04T19:14:54Z",
+    "EmailCount":139
+  },
+  {
+    "Source":"Pastie",
+    "Id":"7152479",
+    "Date":"2013-03-28T16:51:10Z",
+    "EmailCount":30
+  }
+]
+
+Subscription
+Getting the subscription status
+
+This API returns details of the current subscription and is an authenticated API requiring an HIBP API key:
+
+GET https://haveibeenpwned.com/api/v3/subscription/status
+
+The API returns the following attributes for the current subscription:
+Attribute 	Type 	Description
+SubscriptionName 	string 	The name representing the subscription being either "Pwned 1", "Pwned 2", "Pwned 3" or "Pwned 4".
+Description 	string 	A human readable sentence explaining the scope of the subscription.
+SubscribedUntil 	datetime 	The date and time the current subscription ends in ISO 8601 format.
+Rpm 	integer 	The rate limit in requests per minute. This applies to the rate the breach search by email address API can be requested.
+DomainSearchMaxBreachedAccounts 	integer 	The size of the largest domain the subscription can search. This is expressed in the total number of breached accounts on the domain, excluding those that appear solely in spam list.
+IncludesStealerLogs 	boolean 	Indicates if the subscription includes access to the stealer logs APIs.
+Pwned Passwords
+Overview
+
+Pwned Passwords are hundreds of millions of passwords which have previously been exposed in data breaches. The service is detailed in the launch blog post and most recently in this post about the FBI and NCA feeding data into the service. . The data is queryable online via the Pwned Passwords webpage, accessible via the API or downloadable as an entire corpus of data that can be queried offline. The Pwned Passwords API is freely accessible without the need for a subscription and API key.
+
+Each password is stored as both a SHA-1 and an NTLM hash of a UTF-8 encoded password. The downloadable source data delimits the hash and the password count with a colon (:) and each line with a CRLF.
+Searching by range
+
+In order to protect the value of the source password being searched for, Pwned Passwords also implements a k-Anonymity model that allows a password to be searched for by partial hash. This allows the first 5 characters of either a SHA-1 or an NTLM hash (not case-sensitive) to be passed to the API:
+
+GET https://api.pwnedpasswords.com/range/{first 5 hash chars}
+
+When a password hash with the same first 5 characters is found in the Pwned Passwords repository, the API will respond with an HTTP 200 and include the suffix of every hash beginning with the specified prefix, followed by a count of how many times it appears in the data set. The API consumer can then search the results of the response for the presence of their source hash and if not found, the password does not exist in the data set. A sample SHA-1 response for the hash prefix "21BD1" would be as follows:
+
+0018A45C4D1DEF81644B54AB7F969B88D65:1
+00D4F6E8FA6EECAD2A3AA415EEC418D38EC:2
+011053FD0102E94D6AE2F8B83D76FAF94F6:1
+012A7CA357541F0AC487871FEEC1891C49C:2
+0136E006E24E7D152139815FB0FC6A50B15:2
+...
+
+A range search typically returns approximately 800 hash suffixes, although this number will differ depending on the hash prefix being searched for and will increase as more passwords are added. There are 1,048,576 different hash prefixes between 00000 and FFFFF (16^5) and every single one will return HTTP 200; there is no circumstance in which the API should return HTTP 404.
+Code 	Body 	Description
+200 	Hash suffixes   counts 	Ok — all password hashes beginning with the searched prefix are returned alongside prevalence counts
+
+Read more about how k-Anonymity and the Pwned Passwords range search protects searched passwords.
+Introducing padding
+
+In order to further enhance privacy, padding can be added to responses such that anyone able to intercept encrypted responses to the API cannot reasonably determine which hash prefix was searched for by observing the response size. Padding is enabled by a request header and ensures that all responses contain between 800 and 1,000 results regardless of the number of hash suffixes returned by the service. Read the full blog post on padding.
+Header 	Example 	Description
+Add-Padding 	Add-Padding: true 	Pads out responses to ensure all results contain a random number of records between 800 and 1,000.
+
+Note: Padded entries always have a password count of 0 and can be discarded once received.
+Incremental searching
+
+Incremental searching involves performing a search for the password as each character is typed by the user, for example via an asynchronous request from their browser. This may provide a 3rd party (namely someone with access to view inbound requests at Cloudflare) with the ability to observe the API requests with sufficient information to discern the original password being searched for. Waiting until the entire password is entered before checking Pwned Passwords (for example, when the blur event is raised on the password field), mitigates this risk.
+Searching for NTLM hashes
+
+Whilst Pwned Passwords defaults to SHA-1, password hashes can also be requested in NTLM form. API requests still pass the first 5 characters of the hash, but the response returns NTLM hash suffixes of 27 characters rather than SHA-1 suffixes of 35 characters (an NTLM hash is 8 characters shorter than a SHA-1 equivalent). The hash format can be specified via the mode query string:
+Parameter 	Example 	Description
+mode 	?mode=ntlm 	Returns NTLM hash suffixes. When the mode is not specified or is any value other than "ntlm", the resulting hashes will be in SHA-1 form.
+Downloading all Pwned Passwords hashes
+
+Pwned Passwords works best when directly querying the k-Anonymity API; it's fast, always up to date and enables anonymous queries without disclosing the password being searched for. However, all password hashes are also available for download as either SHA-1 or NTLM so they can be used without the API dependency. The Pwned Passwords Downloader is freely available from GitHub and enables the API to be queried for every single hash prefix and the results saved offline. Read more in the launch blog post.
+Further Reading
+HTTPS
+
+All API endpoints must be invoked over HTTPS. Any requests over HTTP will result in a 301 response with a redirect to the same path on the secure scheme. Only TLS versions 1.2 and 1.3 are supported; older versions of the protocol will not allow a connection to be made.
+Response codes
+
+Semantic HTTP response codes are used to indicate the result of the search:
+Code 	Description
+200 	Ok — everything worked and there's a string array of pwned sites for the account
+400 	Bad request — the account does not comply with an acceptable format (i.e. it's an empty string)
+401 	Unauthorised — either no API key was provided or it wasn't valid
+403 	Forbidden — no user agent has been specified in the request
+404 	Not found — the account could not be found and has therefore not been pwned
+429 	Too many requests — the rate limit has been exceeded
+503 	Service unavailable — usually returned by Cloudflare if the underlying service is not available
+Test accounts
+
+Test accounts exist to demonstrate different behaviours. All accounts are on the domain "hibp-integration-tests.com", for example "account-exists@hibp-integration-tests.com".
+Alias 	Description
+account-exists 	Returns one breach and one paste.
+multiple-breaches 	Returns three breaches.
+not-active-and-active-breach 	Returns one breach being "Adobe". An inactive breach also exists against this account in the underlying data structure.
+not-active-breach 	Returns no breaches. An inactive data breach also exists against this account in the underlying data structure.
+opt-out 	Returns no breaches and no pastes. This account is opted-out of both pastes and breaches in the underlying data structure.
+opt-out-breach 	Returns no breaches and no pastes. This account is opted-out of breaches in the underlying data structure.
+paste-sensitive-breach 	Returns no breaches and one paste. A sensitive breach exists against this account in the underlying data structure.
+permanent-opt-out 	Returns no breaches and no pastes. This account is permanently opted-out of both breaches and pastes in the underlying data structure.
+sensitive-and-other-breaches 	Returns two non-sensitive breaches and no pastes. A sensitive breach exists against this account in the underlying data structure.
+sensitive-breach 	Returns no breaches and no pastes. A sensitive breach exists against this account in the underlying data structure.
+spam-list-only 	Returns a single breach that has been flagged as a spam list.
+spam-list-and-others 	Returns multiple breaches, one of which has been flagged as a spam list.
+subscription-free-and-other-breaches 	Returns a breach flagged as subscription-free and two other breaches that aren't.
+stealer-log 	Returns a single stealer log breach and also contains a single domain that has appeared against this address in a stealer log.
+subscription-free-breach 	Returns a single breach flagged as subscription-free.
+unverified-breach 	Returns one unverified breach and no pastes.
+Cross-origin resource sharing (CORS)
+
+CORS is only supported for non-authenticated APIs. APIs requiring a key should not be hit directly from the client side as it exposes the secret to other users. Instead, proxy the request through your own API and handle the authorisation between there and the client in your own code.
+
+On supported APIs, CORS accepts all origins — you can hit the API from websites on any other domain.
+Rate limiting
+
+Requests to the breaches, pastes and stealer log APIs are rate limited. The rate limits depends on the the API key you've purchased. Any request that exceeds the limit will receive an HTTP 429 "Too many requests" response. The response also includes an accompanying "retry-after" response header expressing the number of seconds remaining before the client can make a successful API call with the same key (the value is rounded up to the next whole second). The response body explains the rate limit and refers to the acceptable use documentation.
+
+A typical response looks like this:
+
+HTTP/1.1 429
+retry-after: 2
+
+{
+  "statusCode": 429,
+  "message": "Rate limit is exceeded. Try again in 2 seconds."
+}
+
+It's advisable to avoid querying the API at exactly the rate limit as network behaviour may result in some requests arriving within the retry period and causing a 429. Adding a short delay between requests on top of the rate limit will usually ensure this won't happen.
+
+There is no official rate limit for the domain search API, although the intention is to query it infrequently, usually only after a new breach is loaded. Regular querying of the domain search API beyond what is practically necessary may result in measures being applied to reduce the query rate and respond with an HTTP 429.
+
+Where the rate limit is consistently exceeded, further defences may be employed to limit the ability to query the API. These defences include blocks or JavaScript challenges by Cloudflare which may result in an HTTP 503 "Service Unavailable" response.
+
+There is no rate limit on the Pwned Passwords API.
+Abuse
+
+There's not much point; if you want to build up a treasure trove of pwned email addresses or usernames, go and download the dumps (they're usually just a Google search away) and save yourself the hassle and time of trying to enumerate an API one account at a time. That said, use of the API should fall within acceptable use expectations:
+Acceptable use
+
+The API has been designed to make it easy for people to do awesome things with it. Things that are not awesome include:
+
+    Querying the data for purposes that are intended to cause harm to the victims of data breaches
+    Anything deliberately intended to limit service availability such as denial of service attacks
+    Deliberate attempts to circumvent measures designed to ensure acceptable use
+    Not properly identifying the user agent such that it accurately describes the consumer of the API
+    Misrepresenting the consuming client by impersonating other user agents in an attempt to obfuscate API requests
+    Other services designed to fraudulently represent the Have I Been Pwned name or brand
+    Misrepresenting the source of the data as originating from somewhere other than Have I Been Pwned
+    Not adhering to the Creative Commons Attribution License as described below
+    Automating the consumption of other APIs not explicitly documented on this page
+    Using the service in a fashion that brings Have I Been Pwned into disrepute
+
+Abusing these objectives may limit your ability to query the service via a range of countermeasures. Those countermeasures may impact other consumers of the API if they share network services with an abusive user. If in doubt, get in touch and outline how you'd like to use the service in a way that's consistent with these objectives.
+License — breach & paste APIs
+
+This work is licensed under a Creative Commons Attribution 4.0 International License.
+
+Creative Commons License
+
+In other words, you're welcome to use the public API to build other services, but you must identify Have I Been Pwned as the source of the data. Clear and visible attribution with a link to haveibeenpwned.com should be present anywhere data from the service is used including when searching breaches or pastes and when representing breach descriptions. It doesn't have to be overt, but the interface in which Have I Been Pwned data is represented should clearly attribute the source per the Creative Commons Attribution 4.0 International License.
+
+In order to help maximise adoption, there is no licencing or attribution requirements on the Pwned Passwords API, although it is welcomed if you would like to include it.
