@@ -12,7 +12,7 @@ from haveibeenpwned import HIBP
 
 # Test API key (use real one for integration tests via env var)
 TEST_API_KEY = "00000000000000000000000000000000"
-LIVE_API_KEY = os.environ.get("HIBP_API_KEY", TEST_API_KEY)
+LIVE_API_KEY = os.environ.get("HIBP_API_KEY", TEST_API_KEY) or TEST_API_KEY
 
 # Test account emails
 TEST_ACCOUNT_EXISTS = "account-exists@hibp-integration-tests.com"
