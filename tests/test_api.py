@@ -325,7 +325,7 @@ class TestHIBPParameterPassing:
     
     def test_is_password_pwned_parameters(self, sample_password_hash_response):
         """Test that password checking passes parameters correctly."""
-        from haveibeenpwned.passwords import MD4_AVAILABLE
+        from hibp.passwords import MD4_AVAILABLE
         hibp = HIBP(user_agent="test-suite")
         
         with responses_lib.RequestsMock() as rsps:

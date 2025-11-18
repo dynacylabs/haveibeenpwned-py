@@ -357,7 +357,7 @@ class TestBaseClientLive:
     
     def test_live_not_found_handling(self):
         """Test handling of 404 responses in live requests."""
-        from haveibeenpwned.exceptions import NotFoundError
+        from hibp.exceptions import NotFoundError
         client = BaseClient(user_agent="hibp-test-suite")
         
         # Try to get a breach that doesn't exist
@@ -367,7 +367,7 @@ class TestBaseClientLive:
     @requires_api_key
     def test_live_authentication_with_invalid_key(self):
         """Test authentication failure with invalid API key."""
-        from haveibeenpwned.exceptions import AuthenticationError
+        from hibp.exceptions import AuthenticationError
         from tests.conftest import TEST_ACCOUNT_EXISTS
         
         client = BaseClient(api_key="invalid-key-12345678901234567890", user_agent="hibp-test-suite")

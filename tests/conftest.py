@@ -7,7 +7,7 @@ import pytest
 import responses as responses_lib
 from typing import Dict, Any
 
-from haveibeenpwned import HIBP
+from hibp import HIBP
 
 
 # Test API key (use real one for integration tests via env var)
