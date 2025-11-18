@@ -1,11 +1,29 @@
 from setuptools import setup, find_packages
+import subprocess
+import re
+
+def get_version():
+    """Get version from git tag or fallback to default."""
+    try:
+        # Get the latest git tag
+        version = subprocess.check_output(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+        # Remove 'v' prefix if present
+        version = re.sub(r'^v', '', version)
+        return version
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Fallback version if git is not available or no tags exist
+        return "0.0.0.dev0"
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
     name="haveibeenpwned-py",
-    version="1.0.0",
+    version=get_version(),
     author="HaveIBeenPwned API Client",
     description="Python client library for the Have I Been Pwned API",
     long_description=long_description,
