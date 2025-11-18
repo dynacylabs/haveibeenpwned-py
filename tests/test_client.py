@@ -34,7 +34,7 @@ class TestBaseClient:
         """Test client initialization with defaults."""
         client = BaseClient()
         assert client.api_key is None
-        assert client.user_agent == "haveibeenpwned-python-client"
+        assert client.user_agent == "hibp-python-client"
         assert client.timeout == 30
     
     def test_get_headers_with_api_key(self):
