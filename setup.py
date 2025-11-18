@@ -1,30 +1,18 @@
 from setuptools import setup, find_packages
-import subprocess
-import re
+from pathlib import Path
 
-def get_version():
-    """Get version from git tag or fallback to default."""
-    try:
-        # Get the latest git tag
-        version = subprocess.check_output(
-            ["git", "describe", "--tags", "--abbrev=0"],
-            stderr=subprocess.DEVNULL,
-            text=True
-        ).strip()
-        # Remove 'v' prefix if present
-        version = re.sub(r'^v', '', version)
-        return version
-    except (subprocess.CalledProcessError, FileNotFoundError):
-        # Fallback version if git is not available or no tags exist
-        return "0.0.0.dev0"
-
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
+# Read README
+readme_file = Path(__file__).parent / "README.md"
+if readme_file.exists():
+    long_description = readme_file.read_text(encoding='utf-8')
+else:
+    long_description = "Have I Been Pwned Python API Client"
 
 setup(
     name="haveibeenpwned-py",
-    version=get_version(),
-    author="HaveIBeenPwned API Client",
+    use_scm_version=True,
+    setup_requires=['setuptools_scm'],
+    author="HaveIBeenPwned API Client Contributors",
     description="Python client library for the Have I Been Pwned API",
     long_description=long_description,
     long_description_content_type="text/markdown",
