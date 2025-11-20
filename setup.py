@@ -1,3 +1,7 @@
+"""
+Have I Been Pwned Python Client Setup
+"""
+
 from setuptools import setup, find_packages
 from pathlib import Path
 
@@ -32,7 +36,7 @@ setup(
     ],
     python_requires=">=3.8",
     install_requires=[
-        "requests>=2.25.0",
+        "requests>=2.28.0",
     ],
     extras_require={
         "dev": [
@@ -41,8 +45,9 @@ setup(
             "pytest-mock>=3.10.0",
             "responses>=0.22.0",
             "coverage>=7.0.0",
-            "black>=21.0",
-            "flake8>=3.9",
+            "black>=22.0.0",
+            "ruff>=0.1.0",
+            "mypy>=0.950",
         ],
         "test": [
             "pytest>=7.0.0",

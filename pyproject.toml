@@ -27,7 +27,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "requests>=2.25.0",
+    "requests>=2.28.0",
 ]
 
 [project.optional-dependencies]
@@ -37,8 +37,9 @@ dev = [
     "pytest-mock>=3.10.0",
     "responses>=0.22.0",
     "coverage>=7.0.0",
-    "black>=21.0",
-    "flake8>=3.9",
+    "black>=22.0.0",
+    "ruff>=0.1.0",
+    "mypy>=0.950",
 ]
 test = [
     "pytest>=7.0.0",
@@ -58,10 +59,25 @@ Issues = "https://github.com/dynacylabs/haveibeenpwned/issues"
 line-length = 100
 target-version = ['py38', 'py39', 'py310', 'py311', 'py312']
 
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-addopts = "-v --cov=haveibeenpwned --cov-report=term-missing"
+addopts = "-v --cov=haveibeenpwned --cov-report=term-missing --strict-markers --tb=short"
+markers = [
+    "unit: Unit tests with mocked dependencies",
+    "integration: Integration tests that hit real external services",
+    "slow: Tests that are slow to run",
+]
 
 [tool.setuptools_scm]
 write_to = "haveibeenpwned/_version.py"
